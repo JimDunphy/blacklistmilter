@@ -1,0 +1,13 @@
+header   BLACKLIST_MILTER     X-IP-Blacklisted =~ /blackmilter/
+score    BLACKLIST_MILTER     5
+describe BLACKLIST_MILTER     IP has been seen before on our relays
+
+header   __BLACKLIST_COUNTRY     X-IP-COUNTRY-Blacklisted =~ /blackmilter\s*1/
+meta     BLACKLIST_COUNTRY (__BLACKLIST_COUNTRY && !(RCVD_IN_RP_SAFE || RCVD_IN_RP_CERTIFIED))
+#score    BLACKLIST_COUNTRY     0.5
+score    BLACKLIST_COUNTRY     2.5
+describe BLACKLIST_COUNTRY     IP from a foreign country
+
+meta J_BLACKLIST_MILTER       (BLACKLIST_MILTER && BLACKLIST_COUNTRY)
+score J_BLACKLIST_MILTER        0.5
+describe J_BLACKLIST_MILTER Foreign Country and attacked our servers

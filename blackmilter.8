@@ -1,0 +1,237 @@
+.TH blackmilter 1 "15 May 2004"
+.SH NAME
+blackmilter - blacklist mail filter module
+.SH SYNOPSIS
+.B blackmilter
+.RB [ -blacklist
+.IR file ]
+.RB [ -whitelist
+.IR file ]
+.RB [ -rejectmessage
+.IR msg ]
+.RB [ -autoupdate ]
+.RB [ -updatesocket
+.IR socket ]
+.RB [ -markonly ]
+.RB [ -graylist ]
+.RB [ -loglistname ]
+.RB [ -user
+.IR user ]
+.RB [ -nodaemon|-X ]
+.I socket
+.SH DESCRIPTION
+.PP
+Sendmail includes a facility for plugging in custom mail filters,
+called milters.
+It's documented here: http://www.milter.org/milter_api/
+Blackmilter implements a blacklist of IP addresses which are not permitted
+to send mail to this host.
+Any mail attempts from blacklisted addresses are rejected immediately
+upon connection, before the mail gets transmitted.
+.PP
+The same thing could be accomplished by turning the blacklists into
+a set of firewall rules for port 25.
+However, current firewall implementations process their rules sequentially,
+one by one.
+If you have a lot of hosts you want blocked, this is too costly.
+Blackmilter stores the IP addresses in a data structure that is both fast and
+reasonably compact.
+If you wanted to, you could block millions of addresses quite efficiently.
+.PP
+A more reasonable alternative is the access database built into sendmail.
+However, benchmarking shows that blackmilter is much faster at this
+task - from thirty to sixty times faster.
+If you are getting a lot of mail and blocking a lot of IP addresses,
+this can make a difference.
+Also blackmilter has some advantages in flexibility, such as the autoupdate
+and socket update features.
+.PP
+Blackmilter does not specify any particular blacklisting policy.
+It is merely a clean and simple tool to let you efficiently implement
+whatever policy you choose.
+.SH OPTIONS
+.PP
+All milters take a standardized socket argument, which specifies how they
+communicate with sendmail.
+This will look something like "unix:/var/run/blackmilter.sock" for a
+unix-domain socket, or "inet:2525@localhost" for an internet-domain socket.
+The same string gets used in the INPUT_MAIL_FILTER macro in sendmail.mc.
+.PP
+In addition to the required socket argument, there are a number of flags:
+.TP
+.B -blacklist
+Specifies a file of IP numbers to reject.
+Multiple -blacklist options may be specified; at least one is required.
+.TP
+.B -whitelist
+Specifies a file of IP numbers to accept even if they are also on a blacklist.
+Multiple -whitelist options may be specified.
+.TP
+.B -rejectmessage
+You can specify the message returned by blackmilter when a message
+is rejected.
+The default message just says "IP address blocked by blackmilter".
+.TP
+.B -autoupdate
+This flag tells blackmilter to check periodically whether the blacklist
+and whitelist files have been changed.
+If any of them have, it automatically reloads the database.
+.TP
+.B -updatesocket
+This tells blackmilter to read commands from this socket and act on them
+in realtime.
+The protocol for sending stuff to the socket is documented below.
+.TP
+.B -markonly
+This flag tells blackmilter to accept mail from blacklisted addresses,
+but mark it with an X-IP-Blacklisted header.
+A later layer of the mail delivery process, such as procmail, can look
+for this header and handle the mail appropriately.
+.TP
+.B -graylist
+Tells blackmilter to return a temporary failure code instead of
+a permanent rejection.
+The idea here is that legitimate mailers will retry the mail later,
+while spammers and worms only try each message once.
+Thus you can avoid most spam/worms with zero risk of rejecting
+legitimate mail - it only gets delayed, and only if it is coming
+from a suspect IP address.
+When graylisting, the process you use to build blackmilter's
+database is key.
+It needs to update frequently, and expire old addresses on a timescale
+of a few hours.
+One database policy that ought to work quite well with graylisting
+is to blacklist 0.0.0.0/0 - the entire internet - and each hour add
+all addresses seen by blackmilter to the whitelist.
+.TP
+.B -loglistname
+This tells blackmilter to put the specific blacklist/whitelist filename
+into its syslog messages.
+Without this flag, the messages are just a generic "blacklist/whitelist".
+The reason it's an option is that it costs a few more CPU cycles to
+check the lists individually instead of all together; but the cost
+can be worth it if you want data on which lists are being effective.
+Note that if an IP address is in more than one list, only the first
+one to hit is reported.
+.TP
+.B -user
+The user to switch to after starting up as root.
+This is just for convenience, there is no need to start the program
+as root and if you want to switch users external to this program
+via su, that will work fine.
+.TP
+.B -nodaemon or -X
+With this flag, blackmilter will not fork itself into a background
+process.
+Normally it does fork itself.
+.PP
+All flags may be abbreviated to their shortest unique prefix.
+.SH SIGNALS
+.PP
+On receipt of a USR1 signal, blackmilter will reload the blacklist and
+whitelist files.
+(We can't use the more typical HUP signal for this because libmilter
+uses it.)
+See also the -autoupdate flag.
+.SH "UPDATE SOCKET"
+.PP
+If you are using the -updatesocket flag, you can send simple commands
+to blackmilter.
+These commands are run as soon as they are received.
+This lets you avoid stopping and restarting blackmilter for
+minor changes/additions to your lists.
+You could also set up scripts to automatically add addresses to
+the blacklist as soon as they show up as bad.
+.PP
+The protocol for using the update socket is simple.
+Each command is a single line, consisting of the command name and
+zero or more parameters.
+The currently implemented commands:
+.nf
+blacklist 1.2.3.4
+blacklist listname 1.2.3.4
+whitelist 1.2.3.4
+whitelist listname 1.2.3.4
+.fi
+.SH INSTALLATION
+.PP
+This is very abbreviated, intended mainly as a reminder for those
+who have worked with milters before.
+If it's your first milter, you should look on the web for more thorough
+documentation.
+Also, these instructions are pretty specific to FreeBSD, and will
+have to be adapted for other OSs.
+.IP 1)
+Make sure your sendmail is compiled with the MILTER option.
+(Starting with version 8.13 this is enabled by default.)
+You can use this command to check:
+.nf
+    sendmail -d0.1 -bt < /dev/null | grep MILTER
+.fi
+If you don't see MILTER in the compilation options, you will have
+to re-build sendmail.
+.IP 2)
+Build and install the blackmilter executable, by doing a 'make install'.
+.IP 3)
+Edit your sendmail.mc and add a mail filter macro, for example:
+.nf
+    INPUT_MAIL_FILTER(`blackmilter',`S=unix:/var/run/blackmilter.sock')
+.fi
+Rebuild and install sendmail.cf.
+.IP 4)
+Run blackmilter, with your blacklist args and the same socket argument
+you used in sendmail.mc:
+.nf
+    # blackmilter -a -b /etc/smtp_blacklist unix:/var/run/blackmilter.sock
+.fi
+.IP 5)
+Stop and re-start sendmail.
+.IP 6)
+Look in /var/log/maillog for messages from blackmilter.
+.IP 7)
+When you've verified that it's working, add lines to your /etc/rc.conf
+so it starts up at boot time:
+.nf
+    blackmilter_enable="YES"
+    blackmilter_flags="-a -b /etc/smtp_blacklist"
+    blackmilter_socket="unix:/var/run/blackmilter.sock"
+.fi
+.SH "DATA STRUCTURE"
+.PP
+The current version uses a hash table of IPv6 addresses, with special
+modifications to make it aware of network prefixes / netmasks.
+IPv4 addresses are represented as IPv4-mapped IPv6 address.
+.PP
+The previous version only handled IPv4 addresses, and used a
+four-dimensional sparse array.
+Extending that from IPv4's 4 octets to IPv6's 16 octets would
+have expanded the code four-fold, so switching to a hash table
+was easier.
+.PP
+The IPv6-capable hash table version is actually smaller
+than the old IPv4-only sparse array version, and about as fast.
+.SH AUTHOR
+Copyright © 2004 by Jef Poskanzer <jef@mail.acme.com>.
+All rights reserved.
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" For commentary on this license please see http://www.acme.com/license.html

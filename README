@@ -1,0 +1,34 @@
+	      blackmilter - blacklist mail filter module
+
+Sendmail includes a facility for plugging in custom mail filters,
+called milters.  It's documented here: http://www.milter.org/milter_api/
+Blackmilter implements a blacklist of IP addresses which are not
+permitted to send mail to this host.  Any mail attempts from
+blacklisted addresses are rejected immediately upon connection,
+before the mail gets transmitted.
+
+This could also be accomplished by turning the blacklists into a
+set of firewall rules for port 25.  However, current firewall
+implementations process their rules sequentially, one by one.  If
+you have a lot of hosts you want blocked, this is too costly.
+Blackmilter stores the IP addresses in a data structure that is
+both fast and reasonably compact.  If you wanted to, you could
+block millions of addresses quite efficiently.
+
+A more reasonable alternative is the access database built into
+sendmail.  However, benchmarking shows that blackmilter is much
+faster at this task - from thirty to sixty times faster.  If you
+are getting a lot of mail and blocking a lot of IP addresses, this
+can make a difference.  Also blackmilter has some advantages in
+flexibility, such as the autoupdate and socket update features.
+
+Blackmilter does not specify any particular blacklisting policy.
+It is merely a clean and simple tool to let you efficiently implement
+whatever policy you choose.
+
+See the manual entry for more details.
+
+Feedback is welcome - send bug reports, enhancements, checks, money
+orders, etc. to the addresses below.
+
+    Jef Poskanzer  jef@mail.acme.com  http://www.acme.com/jef/
