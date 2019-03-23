@@ -18,7 +18,7 @@ The data structure is a hast table, with some enhancement to deal with netmasks/
 This can be used with ipsets but the primary intention is to build Class A,B,C ranges for the countries you deem normal
 
 # History
-The milter written by Jeff Poskanzer was the most efficient method I have seen to date in holding large cidr's. This started initially with an earlier release of his milter and was reported to the new version that supports ipv6. 
+The milter written by Jeff Poskanzer was the most efficient method I have seen to date in holding large cidr's. This started initially with an earlier release of his milter and was reported to the new version that supports ipv6.  The milter supports both blocking and tagging but we describe tagging here (markonly).
 
 # Usage
 This milter is tested production ready with sendmail. It should also work with postfix. Here is how to start it:
