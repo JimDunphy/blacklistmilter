@@ -24,9 +24,16 @@ This can be used with ipsets but the primary intention is to build Class A,B,C r
 # History
 The original milter was written by Jeff Poskanzer and was the most efficient method I had seen to date in holding large cidr's. This started initially with an earlier release of his milter and was upgraded to the new version that supported ipv6.  The milter supports both blocking and tagging but I describe tagging here (markonly).
 
-# Usage (This is started at boot time)
+Usage (This is started at boot time)
+------------------------------------
 This milter is tested production ready with sendmail. It should also work with postfix. Here is how to start it:
-/usr/local/sbin/blackmilter -markonly -loglistname -autoupdate -blacklist /usr/local/blackmilter/blacklist -blacklist /usr/local/blackmilter/bl-country /usr/local/blackmilter/blackmilter.sock
+
+~~~~
+# /usr/local/sbin/blackmilter -markonly -loglistname -autoupdate \
+           -blacklist /usr/local/blackmilter/blacklist         \
+           -blacklist /usr/local/blackmilter/bl-country        \
+           /usr/local/blackmilter/blackmilter.sock
+~~~~
 
 This is the entry in your sendmail.mc
 -------------------------------------
